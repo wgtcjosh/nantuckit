@@ -1,0 +1,145 @@
+import wixLocation from 'wix-location';
+import wixData from 'wix-data';
+import { notifyEveryone } from 'backend/notifications';
+import wixCRM from 'wix-crm';
+let myFabrics = [];
+let myFabricSelection = [];
+
+$w.onReady(()=>{
+	$w("#container2").onClick(fabricSelection);
+	$w("#button3").onClick(submitForm);
+	$w("#input8").onMouseOut(validateForm);
+	$w("#input6").onMouseOut(validateForm);
+	$w("#input7").onMouseOut(validateForm);
+	$w("#input5").onMouseOut(validateForm);
+	$w("#addressInput2").onMouseOut(validateForm);
+})
+
+export function notifyTeam(event) {
+ const title = "New fabric order from "+$w("#input8").value+" "+$w("#input7").value;
+ const action = "Click to view";
+ const site = "https://manage.wix.com/dashboard/2aa32f69-d10e-47d1-9b36-c925c419a7f9/database/data/CustomOrderSubmission"; // use full URL link
+ const role = "All_Contributors";    
+    notifyEveryone(title,action,site,role)
+}
+
+function submitForm(){
+	notifyTeam();
+	createNewContact();
+	let fabricNames = myFabricSelection;
+	let toSave = {
+		"fabrics" : fabricNames,
+		"first_name" : $w("#input8").value,
+		"last_name" : $w("#input7").value,
+		"email" : $w("#input6").value,
+		"phone" : $w("#input5").value,
+		"address" : $w("#addressInput2").value,
+		"product" : "Fabric"
+	}
+	wixData.save("CustomOrderSubmission", toSave)
+	.then( (results) => {
+		console.log(results)
+		wixLocation.to("/copy-of-contact");
+	} )
+	.catch( (error) => {
+		console.log(error);
+	} );
+}
+
+function createNewContact (){
+	wixCRM.createContact({
+	"firstName": $w('#input8').value,
+	"lastName": $w('#input7').value,
+	"emails": [$w("#input6").value],
+	"phones": [$w("#input5").value]
+	})
+	.then((contactId) => {
+	wixCRM.emailContact("newFabricOrder", contactId, {
+		"variables": {
+		"firstName": $w('#input8').value,
+		"shippingAddress": $w("#addressInput2").value.formatted
+		}
+		})
+		.then(() => {
+		console.log("email sent")
+		})
+		.catch((err) => {
+		console.log(err)
+		});
+	});
+	}
+
+function fabricSelection (event){
+	let id = event.context.itemId;
+	let data = getInfo(id);
+	let fabricName = data.name;
+	console.log(fabricName);
+
+	if (myFabrics.length >= 12){
+		return;
+	}
+
+	myFabrics.push(data)
+	myFabricSelection.push(fabricName)
+	updateRepeater();
+}
+
+function getInfo (idIn){
+	let c = $w("#catalogue").data;
+	for (let i = 0; i < c.length; i++) {
+		if (c[i]._id === idIn) {
+			return c[i];
+		}
+	}
+}
+
+function validateForm(){
+		if (!($w('#input8').valid && $w('#input6').valid &&
+			  $w('#input5').valid && $w('#addressInput2').valid)) {
+
+			let validationMessage = '';
+
+			if (!$w('#input8').valid)
+				validationMessage += 'Please enter your first name\n';
+			
+			if (!$w('#input7').valid)
+				validationMessage += 'Please enter your last name\n';
+
+			if (!$w('#input6').valid) {
+				if (!$w('#input6').value)
+					validationMessage += 'Please enter an email address\n';
+			}
+
+			if (!$w('#input5').valid)
+				validationMessage += 'Please enter a valid phone number\n';
+
+			if (!$w('#addressInput2').valid)
+				validationMessage += 'Please enter an address\n';
+				$w("#button3").disable()
+
+			$w('#text101').text = validationMessage;
+			$w('#text101').expand();
+		}
+		else
+			$w('#text101').collapse();
+	if($w("#input8").value.length  > 0 && $w("#input5").value.length  > 0 && $w("#input6").value.length  > 0 && $w("#addressInput2").value.postalCode.length > 0) {
+		$w("#button3").enable();
+		} else {
+		$w("#button3").disable() 
+		}
+}
+
+function updateRepeater(){
+	$w("#repeater1").data = myFabrics;
+	$w("#repeater2").data = myFabrics;
+  	$w("#repeater3").data = myFabrics;
+	$w("#repeater1").forEachItem(($item, itemData) =>{
+		$item("#image33").src = itemData.mainMedia;
+	})
+	$w("#repeater2").forEachItem(($item, itemData) =>{
+		$item("#image34").src = itemData.mainMedia;
+	})
+  $w("#repeater3").forEachItem(($item, itemData) =>{
+		$item("#image35").src = itemData.mainMedia;
+	})
+}
